@@ -618,8 +618,6 @@ Notes:
 
 * `name`, `ip` and `mac` values are unique.
 
-* `ip` & `mac` values can't be set both at the same time.
-
 * If `mac` is set and DHCP server is enabled, IP is taken from DHCP lease table.
 
 * If `use_global_settings` is true, then DNS responses for this client are processed and filtered using global settings.
@@ -643,8 +641,8 @@ Response:
 	clients: [
 		{
 			name: "client1"
-			ip: "..."
-			mac: "..."
+			ids: ["...", ...] // IP or MAC
+			ip_addrs: ["...", ...] // all IP addresses (set by user and resolved by MAC)
 			use_global_settings: true
 			filtering_enabled: false
 			parental_enabled: false
@@ -682,8 +680,7 @@ Request:
 
 	{
 		name: "client1"
-		ip: "..."
-		mac: "..."
+		ids: ["...", ...] // IP or MAC
 		use_global_settings: true
 		filtering_enabled: false
 		parental_enabled: false
@@ -712,8 +709,7 @@ Request:
 		name: "client1"
 		data: {
 			name: "client1"
-			ip: "..."
-			mac: "..."
+			ids: ["...", ...] // IP or MAC
 			use_global_settings: true
 			filtering_enabled: false
 			parental_enabled: false
