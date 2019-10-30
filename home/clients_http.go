@@ -154,8 +154,7 @@ func handleAddClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = writeAllConfigsAndReloadDNS()
-	returnOK(w)
+	onConfigModified()
 }
 
 // Remove client
@@ -178,8 +177,7 @@ func handleDelClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = writeAllConfigsAndReloadDNS()
-	returnOK(w)
+	onConfigModified()
 }
 
 type updateJSON struct {
@@ -218,8 +216,7 @@ func handleUpdateClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = writeAllConfigsAndReloadDNS()
-	returnOK(w)
+	onConfigModified()
 }
 
 // RegisterClientsHandlers registers HTTP handlers
