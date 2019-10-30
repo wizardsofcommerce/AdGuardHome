@@ -147,9 +147,6 @@ func registerControlHandlers() {
 	http.HandleFunc("/control/version.json", postInstall(optionalAuth(handleGetVersionJSON)))
 	httpRegister(http.MethodPost, "/control/update", handleUpdate)
 
-	httpRegister(http.MethodGet, "/control/access/list", handleAccessList)
-	httpRegister(http.MethodPost, "/control/access/set", handleAccessSet)
-
 	RegisterFilteringHandlers()
 	RegisterTLSHandlers()
 	RegisterClientsHandlers()
