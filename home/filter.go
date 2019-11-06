@@ -68,6 +68,35 @@ func userFilter() filter {
 	return f
 }
 
+func filterSet(url string, newf filter) bool {
+	config.Lock()
+	defer config.Unlock()
+
+	for i := range config.Filters {
+		f := &config.Filters[i]
+		if f.URL == url {
+			log.Debug("filter set: %s: {%s %s %v}", f.URL, newf.Name, newf.URL, newf.Enabled)
+			f.Name = newf.Name
+			f.URL = newf.URL
+
+			if f.Enabled != newf.Enabled {
+				f.Enabled = newf.Enabled
+				if f.Enabled {
+					e := f.load()
+					if e != nil {
+						f.LastUpdated = time.Time{}
+						log.Tracef("%s filter load: %v", url, e)
+					}
+				} else {
+					f.unload()
+				}
+			}
+			return true
+		}
+	}
+	return false
+}
+
 // Enable or disable a filter
 func filterEnable(url string, enable bool) bool {
 	r := false
