@@ -21,6 +21,8 @@ type clientJSON struct {
 
 	UseGlobalBlockedServices bool     `json:"use_global_blocked_services"`
 	BlockedServices          []string `json:"blocked_services"`
+
+	Upstreams []string `json:"upstreams"`
 }
 
 type clientHostJSON struct {
@@ -54,6 +56,8 @@ func handleGetClients(w http.ResponseWriter, r *http.Request) {
 
 			UseGlobalBlockedServices: !c.UseOwnBlockedServices,
 			BlockedServices:          c.BlockedServices,
+
+			Upstreams: c.Upstreams,
 		}
 
 		if len(c.MAC) != 0 && config.clients.dhcpServer != nil {
@@ -120,6 +124,8 @@ func jsonToClient(cj clientJSON) (*Client, error) {
 
 		UseOwnBlockedServices: !cj.UseGlobalBlockedServices,
 		BlockedServices:       cj.BlockedServices,
+
+		Upstreams: cj.Upstreams,
 	}
 	return &c, nil
 }

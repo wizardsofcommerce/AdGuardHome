@@ -670,6 +670,7 @@ Response:
 				key: "value"
 				...
 			}
+			upstreams: ["upstream1", ...]
 		}
 	]
 	auto_clients: [
@@ -705,6 +706,7 @@ Request:
 		safesearch_enabled: false
 		use_global_blocked_services: true
 		blocked_services: [ "name1", ... ]
+		upstreams: ["upstream1", ...]
 	}
 
 Response:
@@ -735,6 +737,7 @@ Request:
 			safesearch_enabled: false
 			use_global_blocked_services: true
 			blocked_services: [ "name1", ... ]
+			upstreams: ["upstream1", ...]
 		}
 	}
 

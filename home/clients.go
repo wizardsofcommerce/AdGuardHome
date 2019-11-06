@@ -34,6 +34,8 @@ type Client struct {
 
 	UseOwnBlockedServices bool // false: use global settings
 	BlockedServices       []string
+
+	Upstreams []string // list of upstream servers to be used for the client's requests
 }
 
 type clientSource uint
@@ -91,6 +93,8 @@ type clientObject struct {
 
 	UseGlobalBlockedServices bool     `yaml:"use_global_blocked_services"`
 	BlockedServices          []string `yaml:"blocked_services"`
+
+	Upstreams []string `yaml:"upstreams"`
 }
 
 func (clients *clientsContainer) addFromConfig(objects []clientObject) {
@@ -107,6 +111,8 @@ func (clients *clientsContainer) addFromConfig(objects []clientObject) {
 
 			UseOwnBlockedServices: !c.UseGlobalBlockedServices,
 			BlockedServices:       c.BlockedServices,
+
+			Upstreams: c.Upstreams,
 		}
 		_, err := config.clients.Add(cli)
 		if err != nil {
@@ -135,6 +141,8 @@ func (clients *clientsContainer) WriteDiskConfig(objects *[]clientObject) {
 
 			UseGlobalBlockedServices: !cli.UseOwnBlockedServices,
 			BlockedServices:          cli.BlockedServices,
+
+			Upstreams: cli.Upstreams,
 		}
 		config.Clients = append(config.Clients, cy)
 	}
