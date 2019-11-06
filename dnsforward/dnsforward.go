@@ -388,7 +388,7 @@ func (s *Server) handleDNSRequest(p *proxy.Proxy, d *proxy.DNSContext) error {
 			d.Req.Question[0].Name = dns.Fqdn(res.CanonName)
 		}
 
-		if d.Addr != nil {
+		if d.Addr != nil && s.conf.GetUpstreamsByClient != nil {
 			clientIP, _, _ := net.SplitHostPort(d.Addr.String())
 			upstreams := s.conf.GetUpstreamsByClient(clientIP)
 			for _, us := range upstreams {
