@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/AdguardTeam/golibs/log"
+	"github.com/miekg/dns"
 )
 
 // IsValidURL - return TRUE if URL is valid
@@ -264,6 +265,33 @@ func handleFilteringConfig(w http.ResponseWriter, r *http.Request) {
 	enableFilters(true)
 }
 
+type checkHostResp struct {
+	Filtered bool `json:"filtered"`
+}
+
+func handleCheckHost(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	host := q.Get("name")
+
+	setts := config.dnsFilter.GetConfig()
+	setts.FilteringEnabled = true
+	result, err := config.dnsFilter.CheckHost(host, dns.TypeA, &setts)
+	if err != nil {
+		httpError(w, http.StatusInternalServerError, "couldn't apply filtering: %s: %s", host, err)
+		return
+	}
+
+	resp := checkHostResp{}
+	resp.Filtered = result.IsFiltered
+	js, err := json.Marshal(resp)
+	if err != nil {
+		httpError(w, http.StatusInternalServerError, "json encode: %s", err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write(js)
+}
+
 // RegisterFilteringHandlers - register handlers
 func RegisterFilteringHandlers() {
 	httpRegister(http.MethodGet, "/control/filtering/status", handleFilteringStatus)
@@ -273,6 +301,7 @@ func RegisterFilteringHandlers() {
 	httpRegister(http.MethodPost, "/control/filtering/set_url", handleFilteringSetURL)
 	httpRegister(http.MethodPost, "/control/filtering/refresh", handleFilteringRefresh)
 	httpRegister(http.MethodPost, "/control/filtering/set_rules", handleFilteringSetRules)
+	httpRegister("GET", "/control/filtering/check_host", handleCheckHost)
 }
 
 func checkFiltersUpdateIntervalHours(i uint32) bool {
