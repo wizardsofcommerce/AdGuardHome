@@ -282,13 +282,8 @@ func (s *Server) IsRunning() bool {
 	return isRunning
 }
 
-// Reconfigure2 - safely apply and write new configuration and restart
-func (s *Server) Reconfigure2(newconf FilteringConfig) error {
-	s.Lock()
-	s.conf.FilteringConfig = newconf
-	s.Unlock()
-	s.conf.ConfigModified()
-
+// Restart - restart server
+func (s *Server) Restart() error {
 	s.Lock()
 	defer s.Unlock()
 	log.Print("Start reconfiguring the server")
