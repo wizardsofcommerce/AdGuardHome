@@ -171,7 +171,12 @@ Request:
 	POST /control/install/check_config
 
 	{
-	"dns":{"port":53,"ip":"127.0.0.1","autofix":false}
+	"dns":{
+		"port":53,
+		"ip":"127.0.0.1",
+		"autofix":false
+		"set_static_ip": true | false
+	}
 	}
 
 Check if DNSStubListener is enabled:

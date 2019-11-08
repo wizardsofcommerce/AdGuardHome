@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/AdguardTeam/golibs/file"
 	"github.com/AdguardTeam/golibs/log"
 )
 
@@ -48,9 +49,10 @@ func handleInstallGetAddresses(w http.ResponseWriter, r *http.Request) {
 }
 
 type checkConfigReqEnt struct {
-	Port    int    `json:"port"`
-	IP      string `json:"ip"`
-	Autofix bool   `json:"autofix"`
+	Port        int    `json:"port"`
+	IP          string `json:"ip"`
+	Autofix     bool   `json:"autofix"`
+	SetStaticIP bool   `json:"set_static_ip"`
 }
 type checkConfigReq struct {
 	Web checkConfigReqEnt `json:"web"`
@@ -158,6 +160,68 @@ func getInterfaceByIP(ip string) string {
 	return ""
 }
 
+// Get gateway IP address
+func getGatewayIP(ifaceName string) string {
+	cmd := exec.Command("ip", "route", "show", "dev", ifaceName)
+	log.Tracef("executing %s %v", cmd.Path, cmd.Args)
+	d, err := cmd.Output()
+	if err != nil || cmd.ProcessState.ExitCode() != 0 {
+		return ""
+	}
+
+	fields := strings.Fields(string(d))
+	if len(fields) < 3 || fields[0] != "default" {
+		return ""
+	}
+
+	ip := net.ParseIP(fields[2])
+	if ip == nil {
+		return ""
+	}
+
+	return fields[2]
+}
+
+// Set a static IP for network interface
+func setStaticIP(ifaceName string) error {
+	ip := getFullIP(ifaceName)
+	if len(ip) == 0 {
+		return errors.New("Can't get IP address")
+	}
+
+	body, err := ioutil.ReadFile("/etc/dhcpcd.conf")
+	if err != nil {
+		return err
+	}
+
+	ip4, _, err := net.ParseCIDR(ip)
+	if err != nil {
+		return err
+	}
+
+	add := fmt.Sprintf("\ninterface %s\nstatic ip_address=%s\n",
+		ifaceName, ip)
+	body = append(body, []byte(add)...)
+
+	gatewayIP := getGatewayIP(ifaceName)
+	if len(gatewayIP) != 0 {
+		add = fmt.Sprintf("static routers=%s\n",
+			gatewayIP)
+		body = append(body, []byte(add)...)
+	}
+
+	add = fmt.Sprintf("static domain_name_servers=%s\n\n",
+		ip4)
+	body = append(body, []byte(add)...)
+
+	err = file.SafeWrite("/etc/dhcpcd.conf", body)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // Check if ports are available, respond with results
 func handleInstallCheckConfig(w http.ResponseWriter, r *http.Request) {
 	reqData := checkConfigReq{}
@@ -202,8 +266,14 @@ func handleInstallCheckConfig(w http.ResponseWriter, r *http.Request) {
 			respData.DNS.Status = fmt.Sprintf("%v", err)
 
 		} else {
-			// check if we have a static IP
+
 			interfaceName := getInterfaceByIP(reqData.DNS.IP)
+
+			if reqData.DNS.SetStaticIP {
+				err = setStaticIP(interfaceName)
+			}
+
+			// check if we have a static IP
 			isStaticIP, err := hasStaticIP(interfaceName)
 			staticIPStatus := "yes"
 			if err != nil {
