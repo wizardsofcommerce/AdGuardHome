@@ -28,6 +28,9 @@ Contents:
 	* Static IP check/set
 	* Add a static lease
 	* API: Reset DHCP configuration
+* DNS general settings
+	* API: Get DNS general settings
+	* API: Set DNS general settings
 * DNS access settings
 	* List access settings
 	* Set access settings
@@ -764,6 +767,42 @@ Response:
 Error response (Client not found):
 
 	400
+
+
+## DNS general settings
+
+### API: Get DNS general settings
+
+Request:
+
+	GET /control/dns_info
+
+Response:
+
+	200 OK
+
+	{
+		"protection_enabled": true | false,
+		"ratelimit": 1234,
+		"blocking_mode": "nxdomain" | "null_ip",
+	}
+
+
+### API: Set DNS general settings
+
+Request:
+
+	POST /control/dns_config
+
+	{
+		"protection_enabled": true | false,
+		"ratelimit": 1234,
+		"blocking_mode": "nxdomain" | "null_ip",
+	}
+
+Response:
+
+	200 OK
 
 
 ## DNS access settings
