@@ -143,6 +143,11 @@ Server replies on success:
 	{
 	"web":{"status":""},
 	"dns":{"status":""},
+	"static_ip": {
+		"static": "yes|no|error",
+		"ip": "<Current dynamic IP address>", // set if static=no
+		"error": "..." // set if static=error
+	}
 	}
 
 Server replies on error:

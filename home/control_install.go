@@ -3,11 +3,15 @@ package home
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"os/exec"
+	"runtime"
 	"strconv"
+	"strings"
 
 	"github.com/AdguardTeam/golibs/log"
 )
@@ -57,9 +61,101 @@ type checkConfigRespEnt struct {
 	Status     string `json:"status"`
 	CanAutofix bool   `json:"can_autofix"`
 }
+type staticIPJSON struct {
+	Static string `json:"static"`
+	IP     string `json:"ip"`
+	Error  string `json:"error"`
+}
 type checkConfigResp struct {
-	Web checkConfigRespEnt `json:"web"`
-	DNS checkConfigRespEnt `json:"dns"`
+	Web      checkConfigRespEnt `json:"web"`
+	DNS      checkConfigRespEnt `json:"dns"`
+	StaticIP staticIPJSON       `json:"static_ip"`
+}
+
+// Check if network interface has a static IP configured
+func hasStaticIP(ifaceName string) (bool, error) {
+	if runtime.GOOS == "windows" {
+		return false, errors.New("Can't detect static IP: not supported on Windows")
+	}
+
+	body, err := ioutil.ReadFile("/etc/dhcpcd.conf")
+	if err != nil {
+		return false, err
+	}
+	lines := strings.Split(string(body), "\n")
+	nameLine := fmt.Sprintf("interface %s", ifaceName)
+	withinInterfaceCtx := false
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+
+		if withinInterfaceCtx && len(line) == 0 {
+			// an empty line resets our state
+			withinInterfaceCtx = false
+		}
+
+		if len(line) == 0 || line[0] == '#' {
+			continue
+		}
+		line = strings.TrimSpace(line)
+
+		if !withinInterfaceCtx {
+			if line == nameLine {
+				// we found our interface
+				withinInterfaceCtx = true
+			}
+
+		} else {
+			if strings.HasPrefix(line, "interface ") {
+				// we found another interface - reset our state
+				withinInterfaceCtx = false
+				continue
+			}
+			if strings.HasPrefix(line, "static ip_address=") {
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
+}
+
+// Get IP address with netmask
+func getFullIP(ifaceName string) string {
+	cmd := exec.Command("ip", "-oneline", "-family", "inet", "address", "show", ifaceName)
+	log.Tracef("executing %s %v", cmd.Path, cmd.Args)
+	d, err := cmd.Output()
+	if err != nil || cmd.ProcessState.ExitCode() != 0 {
+		return ""
+	}
+
+	fields := strings.Fields(string(d))
+	if len(fields) < 4 {
+		return ""
+	}
+	_, _, err = net.ParseCIDR(fields[3])
+	if err != nil {
+		return ""
+	}
+
+	return fields[3]
+}
+
+func getInterfaceByIP(ip string) string {
+	ifaces, err := getValidNetInterfacesForWeb()
+	if err != nil {
+		return ""
+	}
+
+	for _, iface := range ifaces {
+		for _, addr := range iface.Addresses {
+			if ip == addr {
+				return iface.Name
+			}
+		}
+	}
+
+	return ""
 }
 
 // Check if ports are available, respond with results
@@ -104,6 +200,20 @@ func handleInstallCheckConfig(w http.ResponseWriter, r *http.Request) {
 
 		if err != nil {
 			respData.DNS.Status = fmt.Sprintf("%v", err)
+
+		} else {
+			// check if we have a static IP
+			interfaceName := getInterfaceByIP(reqData.DNS.IP)
+			isStaticIP, err := hasStaticIP(interfaceName)
+			staticIPStatus := "yes"
+			if err != nil {
+				staticIPStatus = "error"
+				respData.StaticIP.Error = err.Error()
+			} else if !isStaticIP {
+				staticIPStatus = "no"
+				respData.StaticIP.IP = getFullIP(interfaceName)
+			}
+			respData.StaticIP.Static = staticIPStatus
 		}
 	}
 
