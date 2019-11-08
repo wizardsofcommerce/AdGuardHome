@@ -97,7 +97,12 @@ type FilteringConfig struct {
 
 	ProtectionEnabled bool `yaml:"protection_enabled"` // whether or not use any of dnsfilter features
 
-	BlockingMode       string   `yaml:"blocking_mode"`        // mode how to answer filtered requests
+	BlockingMode string `yaml:"blocking_mode"` // mode how to answer filtered requests
+	BlockingIPv4 string `yaml:"blocking_ipv4"` // IP address to be returned for a blocked A request
+	BlockingIPv6 string `yaml:"blocking_ipv6"` // IP address to be returned for a blocked AAAA request
+	blockingIPv4 net.IP `yaml:"-"`
+	blockingIPv6 net.IP `yaml:"-"`
+
 	BlockedResponseTTL uint32   `yaml:"blocked_response_ttl"` // if 0, then default is used (3600)
 	Ratelimit          uint32   `yaml:"ratelimit"`            // max number of requests per second from a given IP (0 to disable)
 	RatelimitWhitelist []string `yaml:"ratelimit_whitelist"`  // a list of whitelisted client IP addresses
@@ -546,6 +551,14 @@ func (s *Server) genDNSFilterMessage(d *proxy.DNSContext, result *dnsfilter.Resu
 				return s.genARecord(m, []byte{0, 0, 0, 0})
 			case dns.TypeAAAA:
 				return s.genAAAARecord(m, net.IPv6zero)
+			}
+
+		} else if s.conf.BlockingMode == "custom_ip" {
+			switch m.Question[0].Qtype {
+			case dns.TypeA:
+				return s.genARecord(m, s.conf.blockingIPv4)
+			case dns.TypeAAAA:
+				return s.genAAAARecord(m, s.conf.blockingIPv6)
 			}
 		}
 
