@@ -26,6 +26,7 @@ type dnsConfigJSON struct {
 	BlockingMode      string `json:"blocking_mode"`
 	BlockingIPv4      string `json:"blocking_ipv4"`
 	BlockingIPv6      string `json:"blocking_ipv6"`
+	DisableIPv6       bool   `json:"disable_ipv6"`
 }
 
 func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
@@ -36,6 +37,7 @@ func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
 	resp.BlockingIPv4 = s.conf.BlockingIPv4
 	resp.BlockingIPv6 = s.conf.BlockingIPv6
 	resp.RateLimit = s.conf.Ratelimit
+	resp.DisableIPv6 = s.conf.DisableIPv6
 	s.RUnlock()
 
 	js, err := json.Marshal(resp)
@@ -89,6 +91,7 @@ func (s *Server) handleSetConfig(w http.ResponseWriter, r *http.Request) {
 	s.conf.BlockingIPv6 = req.BlockingIPv6
 	s.conf.blockingIPv4 = net.ParseIP(req.BlockingIPv4)
 	s.conf.blockingIPv6 = net.ParseIP(req.BlockingIPv6)
+	s.conf.DisableIPv6 = req.DisableIPv6
 	if s.conf.Ratelimit != req.RateLimit {
 		restart = true
 	}

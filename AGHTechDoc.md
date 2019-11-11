@@ -787,6 +787,7 @@ Response:
 		"blocking_mode": "nxdomain" | "null_ip" | "custom_ip",
 		"blocking_ipv4": "1.2.3.4",
 		"blocking_ipv6": "1:2:3::4",
+		"disable_ipv6": true | false,
 	}
 
 
@@ -802,6 +803,7 @@ Request:
 		"blocking_mode": "nxdomain" | "null_ip" | "custom_ip",
 		"blocking_ipv4": "1.2.3.4",
 		"blocking_ipv6": "1:2:3::4",
+		"disable_ipv6": true | false,
 	}
 
 Response:
