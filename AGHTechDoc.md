@@ -132,9 +132,12 @@ Request:
 	{
 	"web":{"port":80,"ip":"192.168.11.33"},
 	"dns":{"port":53,"ip":"127.0.0.1","autofix":false},
+	"set_static_ip": true | false
 	}
 
 Server should check whether a port is available only in case it itself isn't already listening on that port.
+
+If `set_static_ip` is `true`, Server attempts to set a static IP for the network interface chosen by `dns.ip` setting.  If the operation is successful, `static_ip.static` setting will be `yes`.  If it fails, `static_ip.static` setting will be set to `error` and `static_ip.error` will contain the error message.
 
 Server replies on success:
 
@@ -149,6 +152,8 @@ Server replies on success:
 		"error": "..." // set if static=error
 	}
 	}
+
+If `static_ip.static` is `no`, Server has detected that the system uses a dynamic address and it can  automatically set a static address if `set_static_ip` in request is `true`.  See section `Static IP check/set` for detailed process.
 
 Server replies on error:
 
@@ -175,7 +180,6 @@ Request:
 		"port":53,
 		"ip":"127.0.0.1",
 		"autofix":false
-		"set_static_ip": true | false
 	}
 	}
 
