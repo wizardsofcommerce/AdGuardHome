@@ -385,6 +385,27 @@ func (s *Server) beforeRequestHandler(p *proxy.Proxy, d *proxy.DNSContext) (bool
 	return true, nil
 }
 
+func setECS(m *dns.Msg, ip net.IP) {
+	o := new(dns.OPT)
+	o.Hdr.Name = "."
+	o.Hdr.Rrtype = dns.TypeOPT
+	e := new(dns.EDNS0_SUBNET)
+	e.Code = dns.EDNS0SUBNET
+	if ip.To4() != nil {
+		e.Family = 1
+		e.SourceNetmask = 24
+		e.Address = ip.To4()
+		e.Address[3] = 0
+	} else {
+		e.Family = 2
+		e.SourceNetmask = 128
+		e.Address = ip
+	}
+	e.SourceScope = 0
+	o.Option = append(o.Option, e)
+	m.Extra = append(m.Extra, o)
+}
+
 // handleDNSRequest filters the incoming DNS requests and writes them to the query log
 func (s *Server) handleDNSRequest(p *proxy.Proxy, d *proxy.DNSContext) error {
 	start := time.Now()
@@ -422,6 +443,15 @@ func (s *Server) handleDNSRequest(p *proxy.Proxy, d *proxy.DNSContext) error {
 			answer = append(answer, s.genCNAMEAnswer(d.Req, res.CanonName))
 			// resolve canonical name, not the original host name
 			d.Req.Question[0].Name = dns.Fqdn(res.CanonName)
+		}
+
+		switch addr := d.Addr.(type) {
+		case *net.UDPAddr:
+			ip := addr.IP
+			setECS(d.Req, ip)
+		case *net.TCPAddr:
+			ip := addr.IP
+			setECS(d.Req, ip)
 		}
 
 		// request was not filtered so let it be processed further
