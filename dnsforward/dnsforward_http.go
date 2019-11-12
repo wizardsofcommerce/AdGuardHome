@@ -129,10 +129,12 @@ func (s *Server) handleSetUpstreamConfig(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	err = validateUpstreams(req.Upstreams)
-	if err != nil {
-		httpError(r, w, http.StatusBadRequest, "wrong upstreams specification: %s", err)
-		return
+	if len(req.Upstreams) != 0 {
+		err = validateUpstreams(req.Upstreams)
+		if err != nil {
+			httpError(r, w, http.StatusBadRequest, "wrong upstreams specification: %s", err)
+			return
+		}
 	}
 
 	newconf := FilteringConfig{}
