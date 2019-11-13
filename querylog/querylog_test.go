@@ -14,6 +14,7 @@ func TestQueryLog(t *testing.T) {
 	conf := Config{
 		Enabled:  true,
 		Interval: 1,
+		MemSize:  100,
 	}
 	l := newQueryLog(conf)
 
