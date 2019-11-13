@@ -395,7 +395,6 @@ func setECS(m *dns.Msg, ip net.IP) {
 		e.Family = 1
 		e.SourceNetmask = 24
 		e.Address = ip.To4()
-		e.Address[3] = 0
 	} else {
 		e.Family = 2
 		e.SourceNetmask = 128
