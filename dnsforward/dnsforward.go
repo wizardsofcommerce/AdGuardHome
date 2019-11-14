@@ -92,6 +92,8 @@ type FilteringConfig struct {
 	BootstrapDNS       []string `yaml:"bootstrap_dns"`        // a list of bootstrap DNS for DoH and DoT (plain DNS only)
 	AllServers         bool     `yaml:"all_servers"`          // if true, parallel queries to all configured upstream servers are enabled
 
+	EnableEDNSClientSubnet bool `yaml:"edns_client_subnet"` // Enable EDNS Client Subnet option
+
 	AllowedClients    []string `yaml:"allowed_clients"`    // IP addresses of whitelist clients
 	DisallowedClients []string `yaml:"disallowed_clients"` // IP addresses of clients that should be blocked
 	BlockedHosts      []string `yaml:"blocked_hosts"`      // hosts that should be blocked
@@ -219,6 +221,7 @@ func (s *Server) startInternal(config *ServerConfig) error {
 		BeforeRequestHandler:     s.beforeRequestHandler,
 		RequestHandler:           s.handleDNSRequest,
 		AllServers:               s.conf.AllServers,
+		EnableEDNSClientSubnet:   s.conf.EnableEDNSClientSubnet,
 	}
 
 	err := processIPCIDRArray(&s.AllowedClients, &s.AllowedClientsIPNet, s.conf.AllowedClients)
@@ -385,26 +388,6 @@ func (s *Server) beforeRequestHandler(p *proxy.Proxy, d *proxy.DNSContext) (bool
 	return true, nil
 }
 
-func setECS(m *dns.Msg, ip net.IP) {
-	o := new(dns.OPT)
-	o.Hdr.Name = "."
-	o.Hdr.Rrtype = dns.TypeOPT
-	e := new(dns.EDNS0_SUBNET)
-	e.Code = dns.EDNS0SUBNET
-	if ip.To4() != nil {
-		e.Family = 1
-		e.SourceNetmask = 24
-		e.Address = ip.To4()
-	} else {
-		e.Family = 2
-		e.SourceNetmask = 128
-		e.Address = ip
-	}
-	e.SourceScope = 0
-	o.Option = append(o.Option, e)
-	m.Extra = append(m.Extra, o)
-}
-
 // handleDNSRequest filters the incoming DNS requests and writes them to the query log
 func (s *Server) handleDNSRequest(p *proxy.Proxy, d *proxy.DNSContext) error {
 	start := time.Now()
@@ -442,15 +425,6 @@ func (s *Server) handleDNSRequest(p *proxy.Proxy, d *proxy.DNSContext) error {
 			answer = append(answer, s.genCNAMEAnswer(d.Req, res.CanonName))
 			// resolve canonical name, not the original host name
 			d.Req.Question[0].Name = dns.Fqdn(res.CanonName)
-		}
-
-		switch addr := d.Addr.(type) {
-		case *net.UDPAddr:
-			ip := addr.IP
-			setECS(d.Req, ip)
-		case *net.TCPAddr:
-			ip := addr.IP
-			setECS(d.Req, ip)
 		}
 
 		// request was not filtered so let it be processed further
