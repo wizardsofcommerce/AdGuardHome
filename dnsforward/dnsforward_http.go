@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/AdguardTeam/dnsproxy/upstream"
+	"github.com/AdguardTeam/golibs/jsonutil"
 	"github.com/AdguardTeam/golibs/log"
 	"github.com/AdguardTeam/golibs/utils"
 	"github.com/miekg/dns"
@@ -70,29 +71,45 @@ func checkBlockingMode(req dnsConfigJSON) bool {
 
 func (s *Server) handleSetConfig(w http.ResponseWriter, r *http.Request) {
 	req := dnsConfigJSON{}
-	err := json.NewDecoder(r.Body).Decode(&req)
+	js, err := jsonutil.DecodeObject(&req, r.Body)
 	if err != nil {
 		httpError(r, w, http.StatusBadRequest, "json.Decode: %s", err)
 		return
 	}
 
-	if !checkBlockingMode(req) {
+	if js.Exists("blocking_mode") && !checkBlockingMode(req) {
 		httpError(r, w, http.StatusBadRequest, "blocking_mode: incorrect value")
 		return
 	}
 
 	restart := false
 	s.Lock()
-	s.conf.ProtectionEnabled = req.ProtectionEnabled
-	s.conf.BlockingMode = req.BlockingMode
-	s.conf.BlockingIPv4 = req.BlockingIPv4
-	s.conf.BlockingIPv6 = req.BlockingIPv6
-	s.conf.blockingIPv4 = net.ParseIP(req.BlockingIPv4)
-	s.conf.blockingIPv6 = net.ParseIP(req.BlockingIPv6)
-	if s.conf.Ratelimit != req.RateLimit {
-		restart = true
+
+	if js.Exists("protection_enabled") {
+		s.conf.ProtectionEnabled = req.ProtectionEnabled
 	}
-	s.conf.Ratelimit = req.RateLimit
+
+	if js.Exists("blocking_mode") {
+		s.conf.BlockingMode = req.BlockingMode
+		if req.BlockingMode == "custom_ip" {
+			if js.Exists("blocking_ipv4") {
+				s.conf.BlockingIPv4 = req.BlockingIPv4
+				s.conf.blockingIPv4 = net.ParseIP(req.BlockingIPv4)
+			}
+			if js.Exists("blocking_ipv6") {
+				s.conf.BlockingIPv6 = req.BlockingIPv6
+				s.conf.blockingIPv6 = net.ParseIP(req.BlockingIPv6)
+			}
+		}
+	}
+
+	if js.Exists("ratelimit") {
+		if s.conf.Ratelimit != req.RateLimit {
+			restart = true
+		}
+		s.conf.Ratelimit = req.RateLimit
+	}
+
 	s.Unlock()
 	s.conf.ConfigModified()
 
