@@ -16,8 +16,7 @@ func TestClients(t *testing.T) {
 
 	// add
 	c = Client{
-		IPs:  []string{"1.1.1.1"},
-		MACs: []string{"aa:aa:aa:aa:aa:aa"},
+		IDs:  []string{"1.1.1.1", "aa:aa:aa:aa:aa:aa"},
 		Name: "client1",
 	}
 	b, e = clients.Add(c)
@@ -27,7 +26,7 @@ func TestClients(t *testing.T) {
 
 	// add #2
 	c = Client{
-		IPs:  []string{"2.2.2.2"},
+		IDs:  []string{"2.2.2.2"},
 		Name: "client2",
 	}
 	b, e = clients.Add(c)
@@ -47,7 +46,7 @@ func TestClients(t *testing.T) {
 
 	// failed add - name in use
 	c = Client{
-		IPs:  []string{"1.2.3.5"},
+		IDs:  []string{"1.2.3.5"},
 		Name: "client1",
 	}
 	b, _ = clients.Add(c)
@@ -57,7 +56,7 @@ func TestClients(t *testing.T) {
 
 	// failed add - ip in use
 	c = Client{
-		IPs:  []string{"2.2.2.2"},
+		IDs:  []string{"2.2.2.2"},
 		Name: "client3",
 	}
 	b, e = clients.Add(c)
@@ -71,28 +70,28 @@ func TestClients(t *testing.T) {
 	assert.True(t, clients.Exists("2.2.2.2", ClientSourceHostsFile))
 
 	// failed update - no such name
-	c.IPs = []string{"1.2.3.0"}
+	c.IDs = []string{"1.2.3.0"}
 	c.Name = "client3"
 	if clients.Update("client3", c) == nil {
 		t.Fatalf("Update")
 	}
 
 	// failed update - name in use
-	c.IPs = []string{"1.2.3.0"}
+	c.IDs = []string{"1.2.3.0"}
 	c.Name = "client2"
 	if clients.Update("client1", c) == nil {
 		t.Fatalf("Update - name in use")
 	}
 
 	// failed update - ip in use
-	c.IPs = []string{"2.2.2.2"}
+	c.IDs = []string{"2.2.2.2"}
 	c.Name = "client1"
 	if clients.Update("client1", c) == nil {
 		t.Fatalf("Update - ip in use")
 	}
 
 	// update
-	c.IPs = []string{"1.1.1.2"}
+	c.IDs = []string{"1.1.1.2"}
 	c.Name = "client1"
 	if clients.Update("client1", c) != nil {
 		t.Fatalf("Update")
@@ -140,7 +139,7 @@ func TestClients(t *testing.T) {
 func TestClientsWhois(t *testing.T) {
 	var c Client
 	clients := clientsContainer{}
-	clients.Init()
+	clients.Init(nil)
 
 	whois := [][]string{{"orgname", "orgname-val"}, {"country", "country-val"}}
 	// set whois info on new client
@@ -154,11 +153,11 @@ func TestClientsWhois(t *testing.T) {
 
 	// set whois info on existing client
 	c = Client{
-		IP:   "1.1.1.2",
+		IDs:  []string{"1.1.1.2"},
 		Name: "client1",
 	}
 	_, _ = clients.Add(c)
 	clients.SetWhoisInfo("1.1.1.2", whois)
-	assert.True(t, clients.ipIndex["1.1.1.2"].WhoisInfo[0][1] == "orgname-val")
+	assert.True(t, clients.idIndex["1.1.1.2"].WhoisInfo[0][1] == "orgname-val")
 	_ = clients.Del("client1")
 }
