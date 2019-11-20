@@ -21,6 +21,7 @@ Contents:
 	* Add client
 	* Update client
 	* Delete client
+	* API: Find clients by IP
 * Enable DHCP server
 	* "Show DHCP status" command
 	* "Check DHCP" command
@@ -641,8 +642,7 @@ Response:
 	clients: [
 		{
 			name: "client1"
-			ids: ["...", ...] // IP or MAC
-			ip_addrs: ["...", ...] // all IP addresses (set by user and resolved by MAC)
+			ids: ["...", ...] // IP, CIDR or MAC
 			use_global_settings: true
 			filtering_enabled: false
 			parental_enabled: false
@@ -680,7 +680,7 @@ Request:
 
 	{
 		name: "client1"
-		ids: ["...", ...] // IP or MAC
+		ids: ["...", ...] // IP, CIDR or MAC
 		use_global_settings: true
 		filtering_enabled: false
 		parental_enabled: false
@@ -709,7 +709,7 @@ Request:
 		name: "client1"
 		data: {
 			name: "client1"
-			ids: ["...", ...] // IP or MAC
+			ids: ["...", ...] // IP, CIDR or MAC
 			use_global_settings: true
 			filtering_enabled: false
 			parental_enabled: false
@@ -746,6 +746,41 @@ Response:
 Error response (Client not found):
 
 	400
+
+
+### API: Find clients by IP
+
+This method returns the list of clients (manual and auto-clients) matching the IP list.
+For auto-clients only `name`, `ids` and `whois_info` fields are set.  Other fields are empty.
+
+Request:
+
+	GET /control/clients/find?ip0=...&ip1=...&ip2=...
+
+Response:
+
+	200 OK
+
+	[
+	{
+		"IP1": {
+			name: "client1"
+			ids: ["...", ...] // IP, CIDR or MAC
+			use_global_settings: true
+			filtering_enabled: false
+			parental_enabled: false
+			safebrowsing_enabled: false
+			safesearch_enabled: false
+			use_global_blocked_services: true
+			blocked_services: [ "name1", ... ]
+			whois_info: {
+				key: "value"
+				...
+			}
+		}
+	}
+	...
+	]
 
 
 ## DNS access settings

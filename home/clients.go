@@ -165,6 +165,11 @@ func (clients *clientsContainer) Exists(ip string, source clientSource) bool {
 
 // Find searches for a client by IP
 func (clients *clientsContainer) Find(ip string) (Client, bool) {
+	ipAddr := net.ParseIP(ip)
+	if ipAddr == nil {
+		return Client{}, false
+	}
+
 	clients.lock.Lock()
 	defer clients.lock.Unlock()
 
@@ -173,7 +178,18 @@ func (clients *clientsContainer) Find(ip string) (Client, bool) {
 		return *c, true
 	}
 
-	ipAddr := net.ParseIP(ip)
+	for _, c = range clients.list {
+		for _, id := range c.IDs {
+			_, ipnet, err := net.ParseCIDR(id)
+			if err != nil {
+				continue
+			}
+			if ipnet.Contains(ipAddr) {
+				return *c, true
+			}
+		}
+	}
+
 	macFound := config.dhcpServer.FindMACbyIP(ipAddr)
 	if macFound == nil {
 		return Client{}, false
@@ -193,6 +209,23 @@ func (clients *clientsContainer) Find(ip string) (Client, bool) {
 	return Client{}, false
 }
 
+// FindAutoClient - search for an auto-client by IP
+func (clients *clientsContainer) FindAutoClient(ip string) (ClientHost, bool) {
+	ipAddr := net.ParseIP(ip)
+	if ipAddr == nil {
+		return ClientHost{}, false
+	}
+
+	clients.lock.Lock()
+	defer clients.lock.Unlock()
+
+	ch, ok := clients.ipHost[ip]
+	if ok {
+		return *ch, true
+	}
+	return ClientHost{}, false
+}
+
 // Check if Client object's fields are correct
 func (c *Client) check() error {
 	if len(c.Name) == 0 {
@@ -210,7 +243,12 @@ func (c *Client) check() error {
 			continue
 		}
 
-		_, err := net.ParseMAC(id)
+		_, _, err := net.ParseCIDR(id)
+		if err == nil {
+			continue
+		}
+
+		_, err = net.ParseMAC(id)
 		if err == nil {
 			continue
 		}

@@ -2,14 +2,13 @@ package home
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
-	"net"
 	"net/http"
 )
 
 type clientJSON struct {
 	IDs                 []string `json:"ids"`
-	AllIPs              []string `json:"ip_addrs"`
 	Name                string   `json:"name"`
 	UseGlobalSettings   bool     `json:"use_global_settings"`
 	FilteringEnabled    bool     `json:"filtering_enabled"`
@@ -42,39 +41,7 @@ func handleGetClients(w http.ResponseWriter, r *http.Request) {
 
 	config.clients.lock.Lock()
 	for _, c := range config.clients.list {
-		cj := clientJSON{
-			Name:                c.Name,
-			IDs:                 c.IDs,
-			UseGlobalSettings:   !c.UseOwnSettings,
-			FilteringEnabled:    c.FilteringEnabled,
-			ParentalEnabled:     c.ParentalEnabled,
-			SafeSearchEnabled:   c.SafeSearchEnabled,
-			SafeBrowsingEnabled: c.SafeBrowsingEnabled,
-
-			UseGlobalBlockedServices: !c.UseOwnBlockedServices,
-			BlockedServices:          c.BlockedServices,
-		}
-
-		for _, id := range c.IDs {
-			if net.ParseIP(id) != nil {
-				cj.AllIPs = append(cj.AllIPs, id)
-				continue
-			}
-
-			hwAddr, err := net.ParseMAC(id)
-			if err == nil {
-				ipAddr := config.dhcpServer.FindIPbyMAC(hwAddr)
-				if ipAddr != nil {
-					cj.AllIPs = append(cj.AllIPs, ipAddr.String())
-				}
-			}
-		}
-
-		cj.WhoisInfo = make(map[string]interface{})
-		for _, wi := range c.WhoisInfo {
-			cj.WhoisInfo[wi[0]] = wi[1]
-		}
-
+		cj := clientToJSON(c)
 		data.Clients = append(data.Clients, cj)
 	}
 	for ip, ch := range config.clients.ipHost {
@@ -127,6 +94,48 @@ func jsonToClient(cj clientJSON) (*Client, error) {
 		BlockedServices:       cj.BlockedServices,
 	}
 	return &c, nil
+}
+
+// Convert Client object to JSON
+func clientToJSON(c *Client) clientJSON {
+	cj := clientJSON{
+		Name:                c.Name,
+		IDs:                 c.IDs,
+		UseGlobalSettings:   !c.UseOwnSettings,
+		FilteringEnabled:    c.FilteringEnabled,
+		ParentalEnabled:     c.ParentalEnabled,
+		SafeSearchEnabled:   c.SafeSearchEnabled,
+		SafeBrowsingEnabled: c.SafeBrowsingEnabled,
+
+		UseGlobalBlockedServices: !c.UseOwnBlockedServices,
+		BlockedServices:          c.BlockedServices,
+	}
+
+	cj.WhoisInfo = make(map[string]interface{})
+	for _, wi := range c.WhoisInfo {
+		cj.WhoisInfo[wi[0]] = wi[1]
+	}
+	return cj
+}
+
+type clientHostJSONWithID struct {
+	IDs       []string               `json:"ids"`
+	Name      string                 `json:"name"`
+	WhoisInfo map[string]interface{} `json:"whois_info"`
+}
+
+// Convert ClientHost object to JSON
+func clientHostToJSON(ip string, ch ClientHost) clientHostJSONWithID {
+	cj := clientHostJSONWithID{
+		Name: ch.Host,
+		IDs:  []string{ip},
+	}
+
+	cj.WhoisInfo = make(map[string]interface{})
+	for _, wi := range ch.WhoisInfo {
+		cj.WhoisInfo[wi[0]] = wi[1]
+	}
+	return cj
 }
 
 // Add a new client
@@ -227,10 +236,51 @@ func handleUpdateClient(w http.ResponseWriter, r *http.Request) {
 	returnOK(w)
 }
 
+// Get the list of clients by IP address list
+func handleFindClient(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	data := []map[string]interface{}{}
+	for i := 0; ; i++ {
+		ip := q.Get(fmt.Sprintf("ip%d", i))
+		if len(ip) == 0 {
+			break
+		}
+		el := map[string]interface{}{}
+		c, ok := config.clients.Find(ip)
+		if !ok {
+			ch, ok := config.clients.FindAutoClient(ip)
+			if !ok {
+				continue // a client with this IP isn't found
+			}
+			cj := clientHostToJSON(ip, ch)
+			el[ip] = cj
+
+		} else {
+			cj := clientToJSON(&c)
+			el[ip] = cj
+		}
+
+		data = append(data, el)
+	}
+
+	js, err := json.Marshal(data)
+	if err != nil {
+		httpError(w, http.StatusInternalServerError, "json.Marshal: %s", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_, err = w.Write(js)
+	if err != nil {
+		httpError(w, http.StatusInternalServerError, "Couldn't write response: %s", err)
+	}
+}
+
 // RegisterClientsHandlers registers HTTP handlers
 func RegisterClientsHandlers() {
 	httpRegister("GET", "/control/clients", handleGetClients)
 	httpRegister("POST", "/control/clients/add", handleAddClient)
 	httpRegister("POST", "/control/clients/delete", handleDelClient)
 	httpRegister("POST", "/control/clients/update", handleUpdateClient)
+	httpRegister("GET", "/control/clients/find", handleFindClient)
 }
