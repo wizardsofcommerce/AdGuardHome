@@ -1022,7 +1022,8 @@ When a new DNS request is received and processed, we store information about thi
 		"IsFiltered":true,
 		"Reason":3,
 		"Rule":"...",
-		"FilterID":1
+		"FilterID":1,
+		"IsCNAMEMatch": true | false,
 		},
 	"Elapsed":12345,
 	"Upstream":"...",
@@ -1085,6 +1086,8 @@ Response:
 		},
 		"reason":"FilteredBlackList",
 		"rule":"||doubleclick.net^",
+		"service_name": "...", // set if reason=FilteredBlockedService
+		"cname_match": true | false
 		"status":"NOERROR",
 		"time":"2006-01-02T15:04:05.999999999Z07:00"
 	}

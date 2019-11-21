@@ -438,6 +438,11 @@ func (s *Server) handleDNSRequest(p *proxy.Proxy, d *proxy.DNSContext) error {
 				answer = append(answer, d.Res.Answer...) // host -> IP
 				d.Res.Answer = answer
 			}
+		} else {
+			res, err = s.filterCNAME(d)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -578,6 +583,41 @@ func (s *Server) filterDNSRequest(d *proxy.DNSContext) (*dnsfilter.Result, error
 	}
 
 	return &res, err
+}
+
+// If response contains CNAME records, we apply filtering to each canonical host name.
+// If this is a match, we set a new response in d.Res and return.
+func (s *Server) filterCNAME(d *proxy.DNSContext) (*dnsfilter.Result, error) {
+	for _, a := range d.Res.Answer {
+		cname, ok := a.(*dns.CNAME)
+		if !ok {
+			continue
+		}
+		log.Debug("DNSFwd: Checking CNAME %s for %s", cname.Target, cname.Hdr.Name)
+		host := strings.TrimSuffix(cname.Target, ".")
+
+		s.RLock()
+		if !s.conf.ProtectionEnabled || s.dnsFilter == nil {
+			continue
+		}
+		setts := dnsfilter.RequestFilteringSettings{}
+		setts.FilteringEnabled = true
+		res, err := s.dnsFilter.CheckHost(host, d.Req.Question[0].Qtype, &setts)
+		s.RUnlock()
+
+		if err != nil {
+			return nil, err
+
+		} else if res.IsFiltered {
+			d.Res = s.genDNSFilterMessage(d, &res)
+			res.IsCNAMEMatch = true
+			log.Debug("DNSFwd: Matched %s by CNAME %s", d.Req.Question[0].Name, cname.Target)
+			return &res, nil
+		}
+	}
+
+	res := dnsfilter.Result{}
+	return &res, nil
 }
 
 // genDNSFilterMessage generates a DNS message corresponding to the filtering result
