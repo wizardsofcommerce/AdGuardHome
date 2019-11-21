@@ -386,6 +386,7 @@ func (s *Server) beforeRequestHandler(p *proxy.Proxy, d *proxy.DNSContext) (bool
 }
 
 // handleDNSRequest filters the incoming DNS requests and writes them to the query log
+// nolint (gocyclo)
 func (s *Server) handleDNSRequest(p *proxy.Proxy, d *proxy.DNSContext) error {
 	start := time.Now()
 
@@ -598,6 +599,7 @@ func (s *Server) filterCNAME(d *proxy.DNSContext) (*dnsfilter.Result, error) {
 
 		s.RLock()
 		if !s.conf.ProtectionEnabled || s.dnsFilter == nil {
+			s.RUnlock()
 			continue
 		}
 		setts := dnsfilter.RequestFilteringSettings{}
