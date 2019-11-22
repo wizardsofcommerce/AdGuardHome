@@ -21,7 +21,7 @@ type QueryLog interface {
 	Close()
 
 	// Add a log entry
-	Add(question *dns.Msg, answer *dns.Msg, result *dnsfilter.Result, elapsed time.Duration, ip net.IP, upstream string)
+	Add(params AddParams)
 
 	// WriteDiskConfig - write configuration
 	WriteDiskConfig(dc *DiskConfig)
@@ -38,6 +38,16 @@ type Config struct {
 
 	// Register an HTTP handler
 	HTTPRegister func(string, string, func(http.ResponseWriter, *http.Request))
+}
+
+// AddParams - parameters for Add()
+type AddParams struct {
+	Question *dns.Msg
+	Answer   *dns.Msg
+	Result   *dnsfilter.Result
+	Elapsed  time.Duration
+	ClientIP net.IP
+	Upstream string
 }
 
 // New - create a new instance of the query log

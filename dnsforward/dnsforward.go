@@ -464,11 +464,17 @@ func (s *Server) handleDNSRequest(p *proxy.Proxy, d *proxy.DNSContext) error {
 	// Synchronize access to s.queryLog and s.stats so they won't be suddenly uninitialized while in use.
 	// This can happen after proxy server has been stopped, but its workers haven't yet exited.
 	if shouldLog && s.queryLog != nil {
-		upstreamAddr := ""
-		if d.Upstream != nil {
-			upstreamAddr = d.Upstream.Address()
+		p := querylog.AddParams{
+			Question: msg,
+			Answer:   d.Res,
+			Result:   res,
+			Elapsed:  elapsed,
+			ClientIP: getIP(d.Addr),
 		}
-		s.queryLog.Add(msg, d.Res, res, elapsed, getIP(d.Addr), upstreamAddr)
+		if d.Upstream != nil {
+			p.Upstream = d.Upstream.Address()
+		}
+		s.queryLog.Add(p)
 	}
 
 	s.updateStats(d, elapsed, *res)
