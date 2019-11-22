@@ -441,11 +441,10 @@ func (s *Server) handleDNSRequest(p *proxy.Proxy, d *proxy.DNSContext) error {
 			}
 		} else {
 			// origResp := d.Res
-			res, err = s.filterCNAME(d)
+			res, err = s.filterResponse(d)
 			if err != nil {
 				return err
 			}
-
 		}
 	}
 
@@ -594,16 +593,28 @@ func (s *Server) filterDNSRequest(d *proxy.DNSContext) (*dnsfilter.Result, error
 	return &res, err
 }
 
-// If response contains CNAME records, we apply filtering to each canonical host name.
+// If response contains CNAME, A or AAAA records, we apply filtering to each canonical host name or IP address.
 // If this is a match, we set a new response in d.Res and return.
-func (s *Server) filterCNAME(d *proxy.DNSContext) (*dnsfilter.Result, error) {
+func (s *Server) filterResponse(d *proxy.DNSContext) (*dnsfilter.Result, error) {
 	for _, a := range d.Res.Answer {
-		cname, ok := a.(*dns.CNAME)
-		if !ok {
+		host := ""
+
+		switch v := a.(type) {
+		case *dns.CNAME:
+			log.Debug("DNSFwd: Checking CNAME %s for %s", v.Target, v.Hdr.Name)
+			host = strings.TrimSuffix(v.Target, ".")
+
+		case *dns.A:
+			host = v.A.String()
+			log.Debug("DNSFwd: Checking record A (%s) for %s", host, v.Hdr.Name)
+
+		case *dns.AAAA:
+			host = v.AAAA.String()
+			log.Debug("DNSFwd: Checking record AAAA (%s) for %s", host, v.Hdr.Name)
+
+		default:
 			continue
 		}
-		log.Debug("DNSFwd: Checking CNAME %s for %s", cname.Target, cname.Hdr.Name)
-		host := strings.TrimSuffix(cname.Target, ".")
 
 		s.RLock()
 		if !s.conf.ProtectionEnabled || s.dnsFilter == nil {
@@ -621,7 +632,7 @@ func (s *Server) filterCNAME(d *proxy.DNSContext) (*dnsfilter.Result, error) {
 		} else if res.IsFiltered {
 			d.Res = s.genDNSFilterMessage(d, &res)
 			res.IsResponseMatch = true
-			log.Debug("DNSFwd: Matched %s by CNAME %s", d.Req.Question[0].Name, cname.Target)
+			log.Debug("DNSFwd: Matched %s by response: %s", d.Req.Question[0].Name, host)
 			return &res, nil
 		}
 	}
