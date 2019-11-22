@@ -612,7 +612,7 @@ func (s *Server) filterCNAME(d *proxy.DNSContext) (*dnsfilter.Result, error) {
 
 		} else if res.IsFiltered {
 			d.Res = s.genDNSFilterMessage(d, &res)
-			res.IsCNAMEMatch = true
+			res.IsResponseMatch = true
 			log.Debug("DNSFwd: Matched %s by CNAME %s", d.Req.Question[0].Name, cname.Target)
 			return &res, nil
 		}

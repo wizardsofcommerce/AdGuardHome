@@ -331,8 +331,8 @@ func (l *queryLog) getData(params getDataParams) map[string]interface{} {
 			jsonEntry["service_name"] = entry.Result.ServiceName
 		}
 
-		if entry.Result.IsCNAMEMatch {
-			jsonEntry["cname_match"] = true
+		if entry.Result.IsResponseMatch {
+			jsonEntry["response_match"] = true
 		}
 
 		answers := answerToMap(a)
