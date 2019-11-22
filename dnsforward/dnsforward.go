@@ -440,10 +440,12 @@ func (s *Server) handleDNSRequest(p *proxy.Proxy, d *proxy.DNSContext) error {
 				d.Res.Answer = answer
 			}
 		} else {
+			// origResp := d.Res
 			res, err = s.filterCNAME(d)
 			if err != nil {
 				return err
 			}
+
 		}
 	}
 

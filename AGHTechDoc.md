@@ -1018,6 +1018,7 @@ When a new DNS request is received and processed, we store information about thi
 	"QT":"...", // question type
 	"QC":"...", // question class
 	"Answer":"...",
+	"OrigAnswer":"...",
 	"Result":{
 		"IsFiltered":true,
 		"Reason":3,
@@ -1071,6 +1072,13 @@ Response:
 		"answer":[
 			{
 			"ttl":10,
+			"type":"AAAA",
+			"value":"::"
+			}
+			...
+		],
+		"original_answer":[ // Answer from upstream server (set if response_match=true)
+			{
 			"type":"AAAA",
 			"value":"::"
 			}
