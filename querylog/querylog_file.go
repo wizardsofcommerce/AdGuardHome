@@ -205,8 +205,12 @@ func (r *Reader) Close() {
 	if r.count > 0 {
 		perunit = elapsed / time.Duration(r.count)
 	}
+	timePercent := uint64(0)
+	if elapsed.Nanoseconds() != 0 {
+		timePercent = r.timecnt * 100 / uint64(elapsed.Nanoseconds())
+	}
 	log.Debug("querylog: read %d entries in %v, %v/entry, seek-reqs:%d  time:%dus (%d%%)",
-		r.count, elapsed, perunit, r.nSeekRequests, r.timecnt/1000, r.timecnt*100/uint64(elapsed.Nanoseconds()))
+		r.count, elapsed, perunit, r.nSeekRequests, r.timecnt/1000, timePercent)
 
 	if r.f != nil {
 		r.f.Close()
