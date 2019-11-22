@@ -415,6 +415,7 @@ func (s *Server) handleDNSRequest(p *proxy.Proxy, d *proxy.DNSContext) error {
 		return err
 	}
 
+	var origResp *dns.Msg
 	if d.Res == nil {
 		answer := []dns.RR{}
 		originalQuestion := d.Req.Question[0]
@@ -440,10 +441,14 @@ func (s *Server) handleDNSRequest(p *proxy.Proxy, d *proxy.DNSContext) error {
 				d.Res.Answer = answer
 			}
 		} else {
-			// origResp := d.Res
 			res, err = s.filterResponse(d)
 			if err != nil {
 				return err
+			}
+			if res != nil {
+				origResp = d.Res // matched by response
+			} else {
+				res = &dnsfilter.Result{}
 			}
 		}
 	}
@@ -466,11 +471,12 @@ func (s *Server) handleDNSRequest(p *proxy.Proxy, d *proxy.DNSContext) error {
 	// This can happen after proxy server has been stopped, but its workers haven't yet exited.
 	if shouldLog && s.queryLog != nil {
 		p := querylog.AddParams{
-			Question: msg,
-			Answer:   d.Res,
-			Result:   res,
-			Elapsed:  elapsed,
-			ClientIP: getIP(d.Addr),
+			Question:   msg,
+			Answer:     d.Res,
+			OrigAnswer: origResp,
+			Result:     res,
+			Elapsed:    elapsed,
+			ClientIP:   getIP(d.Addr),
 		}
 		if d.Upstream != nil {
 			p.Upstream = d.Upstream.Address()
@@ -631,14 +637,12 @@ func (s *Server) filterResponse(d *proxy.DNSContext) (*dnsfilter.Result, error) 
 
 		} else if res.IsFiltered {
 			d.Res = s.genDNSFilterMessage(d, &res)
-			res.IsResponseMatch = true
 			log.Debug("DNSFwd: Matched %s by response: %s", d.Req.Question[0].Name, host)
 			return &res, nil
 		}
 	}
 
-	res := dnsfilter.Result{}
-	return &res, nil
+	return nil, nil
 }
 
 // genDNSFilterMessage generates a DNS message corresponding to the filtering result

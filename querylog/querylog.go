@@ -42,12 +42,13 @@ type Config struct {
 
 // AddParams - parameters for Add()
 type AddParams struct {
-	Question *dns.Msg
-	Answer   *dns.Msg
-	Result   *dnsfilter.Result
-	Elapsed  time.Duration
-	ClientIP net.IP
-	Upstream string
+	Question   *dns.Msg
+	Answer     *dns.Msg          // The response we sent to the client (optional)
+	OrigAnswer *dns.Msg          // The response from an upstream server (optional)
+	Result     *dnsfilter.Result // Filtering result (optional)
+	Elapsed    time.Duration     // Time spent for processing the request
+	ClientIP   net.IP
+	Upstream   string
 }
 
 // New - create a new instance of the query log

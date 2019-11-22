@@ -248,8 +248,6 @@ type Result struct {
 	IP         net.IP `json:",omitempty"` // Not nil only in the case of a hosts file syntax
 	FilterID   int64  `json:",omitempty"` // Filter ID the rule belongs to
 
-	IsResponseMatch bool `json:",omitempty"` // If the match was made by CNAME record
-
 	// for ReasonRewrite:
 	CanonName string   `json:",omitempty"` // CNAME value
 	IPList    []net.IP `json:",omitempty"` // list of IP addresses

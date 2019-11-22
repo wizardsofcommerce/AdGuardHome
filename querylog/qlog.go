@@ -96,7 +96,9 @@ type logEntry struct {
 	QType  string `json:"QT"`
 	QClass string `json:"QC"`
 
-	Answer   []byte `json:",omitempty"` // sometimes empty answers happen like binerdunt.top or rev2.globalrootservers.net
+	Answer     []byte `json:",omitempty"` // sometimes empty answers happen like binerdunt.top or rev2.globalrootservers.net
+	OrigAnswer []byte `json:",omitempty"`
+
 	Result   dnsfilter.Result
 	Elapsed  time.Duration
 	Upstream string `json:",omitempty"` // if empty, means it was cached
@@ -112,17 +114,6 @@ func (l *queryLog) Add(params AddParams) {
 		return
 	}
 
-	var a []byte
-	var err error
-
-	if params.Answer != nil {
-		a, err = params.Answer.Pack()
-		if err != nil {
-			log.Printf("failed to pack answer for querylog: %s", err)
-			return
-		}
-	}
-
 	if params.Result == nil {
 		params.Result = &dnsfilter.Result{}
 	}
@@ -132,7 +123,6 @@ func (l *queryLog) Add(params AddParams) {
 		IP:   params.ClientIP.String(),
 		Time: now,
 
-		Answer:   a,
 		Result:   *params.Result,
 		Elapsed:  params.Elapsed,
 		Upstream: params.Upstream,
@@ -141,6 +131,24 @@ func (l *queryLog) Add(params AddParams) {
 	entry.QHost = strings.ToLower(q.Name[:len(q.Name)-1]) // remove the last dot
 	entry.QType = dns.Type(q.Qtype).String()
 	entry.QClass = dns.Class(q.Qclass).String()
+
+	if params.Answer != nil {
+		a, err := params.Answer.Pack()
+		if err != nil {
+			log.Info("Querylog: Answer.Pack(): %s", err)
+			return
+		}
+		entry.Answer = a
+	}
+
+	if params.OrigAnswer != nil {
+		a, err := params.OrigAnswer.Pack()
+		if err != nil {
+			log.Info("Querylog: OrigAnswer.Pack(): %s", err)
+			return
+		}
+		entry.OrigAnswer = a
+	}
 
 	l.bufferLock.Lock()
 	l.buffer = append(l.buffer, &entry)
@@ -330,13 +338,21 @@ func (l *queryLog) getData(params getDataParams) map[string]interface{} {
 			jsonEntry["service_name"] = entry.Result.ServiceName
 		}
 
-		if entry.Result.IsResponseMatch {
-			jsonEntry["response_match"] = true
-		}
-
 		answers := answerToMap(a)
 		if answers != nil {
 			jsonEntry["answer"] = answers
+		}
+
+		if len(entry.OrigAnswer) > 0 {
+			a = new(dns.Msg)
+			if err := a.Unpack(entry.OrigAnswer); err != nil {
+				log.Debug("Querylog: a.Unpack(entry.OrigAnswer): %s: %s", err, string(entry.OrigAnswer))
+				a = nil
+			}
+		}
+		answers = answerToMap(a)
+		if answers != nil {
+			jsonEntry["original_answer"] = answers
 		}
 
 		data = append(data, jsonEntry)
