@@ -16,9 +16,7 @@ import (
 
 	"github.com/AdguardTeam/AdGuardHome/dnsfilter"
 	"github.com/AdguardTeam/dnsproxy/proxy"
-	"github.com/AdguardTeam/dnsproxy/upstream"
 	"github.com/miekg/dns"
-	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -247,28 +245,95 @@ func TestBlockedRequest(t *testing.T) {
 	}
 }
 
-// f7ds.liberation.fr has a canonical name liberation.eulerian.net which is blocked by filters
+type testUpstream struct {
+	cname2Resp *dns.CNAME
+	aResp      *dns.A
+}
+
+func (u *testUpstream) Exchange(m *dns.Msg) (*dns.Msg, error) {
+	resp := dns.Msg{}
+	resp.SetReply(m)
+
+	cn := dns.CNAME{}
+	cn.Hdr.Name = m.Question[0].Name
+	cn.Target = "cname1."
+	resp.Answer = append(resp.Answer, &cn)
+
+	if u.cname2Resp != nil {
+		resp.Answer = append(resp.Answer, u.cname2Resp)
+	}
+
+	resp.Answer = append(resp.Answer, u.aResp)
+
+	return &resp, nil
+}
+
+func (u *testUpstream) Address() string {
+	return ""
+}
+
 func TestBlockCNAME(t *testing.T) {
 	s := createTestServer(t)
+	testUpstm := &testUpstream{}
 
-	u, err := upstream.AddressToUpstream("9.9.9.9", upstream.Options{Timeout: 3 * time.Second})
-	assert.True(t, err == nil)
-	s.conf.Upstreams = append(s.conf.Upstreams, u)
+	cn := dns.CNAME{}
+	cn.Hdr.Name = "cname1."
+	cn.Target = "null.example.org."
+	testUpstm.cname2Resp = &cn
 
-	err = s.Start(nil)
+	a := dns.A{}
+	a.Hdr.Name = "null.example.org."
+	a.A = net.IP{1, 2, 3, 4}
+	testUpstm.aResp = &a
+	s.conf.Upstreams = append(s.conf.Upstreams, testUpstm)
+
+	err := s.Start(nil)
 	if err != nil {
 		t.Fatalf("Failed to start server: %s", err)
 	}
 	addr := s.dnsProxy.Addr(proxy.ProtoUDP)
 
+	// 'badhost' has a canonical name 'null.example.org' which is blocked by filters:
+	// response is blocked
 	req := dns.Msg{}
 	req.Id = dns.Id()
-	req.RecursionDesired = true
 	req.Question = []dns.Question{
-		{Name: "f7ds.liberation.fr.", Qtype: dns.TypeA, Qclass: dns.ClassINET},
+		{Name: "badhost.", Qtype: dns.TypeA, Qclass: dns.ClassINET},
+	}
+	reply, err := dns.Exchange(&req, addr.String())
+	if err != nil {
+		t.Fatalf("Couldn't talk to server %s: %s", addr, err)
+	}
+	if reply.Rcode != dns.RcodeNameError {
+		t.Fatalf("Wrong response: %s", reply.String())
 	}
 
-	reply, err := dns.Exchange(&req, addr.String())
+	// 'whitelist.example.org' has a canonical name 'null.example.org' which is blocked by filters
+	//   but 'whitelist.example.org' is in a whitelist:
+	// response isn't blocked
+	req = dns.Msg{}
+	req.Id = dns.Id()
+	req.Question = []dns.Question{
+		{Name: "whitelist.example.org.", Qtype: dns.TypeA, Qclass: dns.ClassINET},
+	}
+	reply, err = dns.Exchange(&req, addr.String())
+	if err != nil {
+		t.Fatalf("Couldn't talk to server %s: %s", addr, err)
+	}
+	if reply.Rcode != dns.RcodeSuccess {
+		t.Fatalf("Wrong response: %s", reply.String())
+	}
+
+	// 'example.org' has a canonical name 'cname1' with IP 127.0.0.255 which is blocked by filters:
+	// response is blocked
+	req = dns.Msg{}
+	req.Id = dns.Id()
+	req.Question = []dns.Question{
+		{Name: "example.org.", Qtype: dns.TypeA, Qclass: dns.ClassINET},
+	}
+	testUpstm.cname2Resp = nil
+	testUpstm.aResp.A = net.IP{127, 0, 0, 255}
+	reply, err = dns.Exchange(&req, addr.String())
 	if err != nil {
 		t.Fatalf("Couldn't talk to server %s: %s", addr, err)
 	}
@@ -409,7 +474,7 @@ func TestBlockedBySafeBrowsing(t *testing.T) {
 }
 
 func createTestServer(t *testing.T) *Server {
-	rules := "||nxdomain.example.org^\n||null.example.org^\n||eulerian.net^\n127.0.0.1	host.example.org\n"
+	rules := "||nxdomain.example.org^\n||null.example.org^\n127.0.0.1	host.example.org\n@@||whitelist.example.org^\n||127.0.0.255\n"
 	filters := map[int]string{}
 	filters[0] = rules
 	c := dnsfilter.Config{}
