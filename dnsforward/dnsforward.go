@@ -624,6 +624,8 @@ func (s *Server) filterResponse(d *proxy.DNSContext) (*dnsfilter.Result, error) 
 		}
 
 		s.RLock()
+		// Synchronize access to s.dnsFilter so it won't be suddenly uninitialized while in use.
+		// This could happen after proxy server has been stopped, but its workers are not yet exited.
 		if !s.conf.ProtectionEnabled || s.dnsFilter == nil {
 			s.RUnlock()
 			continue
