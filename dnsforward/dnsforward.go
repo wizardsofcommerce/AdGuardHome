@@ -440,7 +440,8 @@ func (s *Server) handleDNSRequest(p *proxy.Proxy, d *proxy.DNSContext) error {
 				answer = append(answer, d.Res.Answer...) // host -> IP
 				d.Res.Answer = answer
 			}
-		} else {
+
+		} else if res.Reason != dnsfilter.NotFilteredWhiteList {
 			res, err = s.filterResponse(d)
 			if err != nil {
 				return err
